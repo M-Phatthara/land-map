@@ -106,6 +106,21 @@ main{flex:1;display:flex;min-height:0;position:relative}
 .job{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:7px 0;font-size:14px}
 .job small{color:var(--mute)}
 .note{font-size:12px;color:var(--mute);margin-top:18px;line-height:1.6}
+.imgs{display:flex;flex-direction:column;gap:12px}
+.imgs figure{margin:0}
+.imgs button{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg);min-height:140px;cursor:zoom-in}
+.imgs img{display:block;width:100%;height:auto}
+.imgs .ld{display:flex;align-items:center;justify-content:center;min-height:140px;color:var(--mute);font-size:13px}
+.imgs figcaption{font-size:13px;color:var(--mute);margin-top:4px}
+#viewer{position:fixed;inset:0;z-index:3000;background:#000;display:flex;flex-direction:column}
+#viewer[hidden]{display:none}
+#viewer header{display:flex;align-items:center;gap:10px;padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top));color:#fff}
+#viewer header b{flex:1;font-size:15px;font-weight:500}
+#viewer .x{background:#ffffff22;color:#fff}
+#vBox{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;display:flex;touch-action:pan-x pan-y pinch-zoom}
+#vImg{margin:auto;max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in}
+#vBox.big #vImg{max-width:none;max-height:none;width:200%;cursor:zoom-out}
+#vHint{color:#ffffffaa;font-size:12px;text-align:center;padding:6px 0 max(8px,env(safe-area-inset-bottom))}
 /* ---------- มือถือ ---------- */
 @media (max-width:820px){
  #list{position:absolute;inset:0;width:auto;border-left:0;z-index:900}
@@ -168,6 +183,11 @@ main{flex:1;display:flex;min-height:0;position:relative}
  <header><button class="x" id="cClose" aria-label="กลับ">‹</button><b id="cTitle"></b></header>
  <div class="sbody" id="cBody"></div>
 </aside>
+<div id="viewer" hidden role="dialog" aria-label="รูปแปลง">
+ <header><b id="vTitle"></b><button class="x" id="vClose" aria-label="ปิด">×</button></header>
+ <div id="vBox"><img id="vImg" alt="รูปแปลง"></div>
+ <div id="vHint">แตะรูปเพื่อขยาย/ย่อ · ปุ่มย้อนกลับเพื่อปิด</div>
+</div>
 <script>
 (function(){
 "use strict";
@@ -287,7 +307,7 @@ function rowHtml(r){var p=r.p,o=r.o,v=p.v,pr="";
  else pr='<span class="r2">ไม่มีรายการราคา</span>';
  var place=[p.adm[0]&&"ต."+p.adm[0],p.adm[1]&&"อ."+p.adm[1],p.adm[2]&&"จ."+p.adm[2]].filter(Boolean).join(" ");
  var sub=[o&&o.price_type,o&&o.price_date&&thDate(o.price_date,o.date_precision),v.area_wa!=null&&rai(v.area_wa)+" ไร่"].filter(Boolean).join(" · ");
- return '<button class="row'+(p.id===selId?" sel":"")+'" data-id="'+p.id+'"><div class="r1"><b>'+p.id+'<span class="g g'+(p.g||"C")+'">'+esc(p.g||"C")+"</span>"+(p.ll?"":'<span class="tag">ไม่มีหมุด</span>')+(p.o.length>1?'<span class="tag">'+p.o.length+" ราคา</span>":"")+"</b><span>"+pr+'</span></div><div class="r2">'+esc(place||"ไม่ทราบที่ตั้ง")+"</div>"+(sub?'<div class="r2">'+esc(sub)+"</div>":"")+"</button>";}
+ return '<button class="row'+(p.id===selId?" sel":"")+'" data-id="'+p.id+'"><div class="r1"><b>'+p.id+'<span class="g g'+(p.g||"C")+'">'+esc(p.g||"C")+"</span>"+(p.ll?"":'<span class="tag">ไม่มีหมุด</span>')+(p.o.length>1?'<span class="tag">'+p.o.length+" ราคา</span>":"")+(p.im?'<span class="tag">มีรูป</span>':"")+"</b><span>"+pr+'</span></div><div class="r2">'+esc(place||"ไม่ทราบที่ตั้ง")+"</div>"+(sub?'<div class="r2">'+esc(sub)+"</div>":"")+"</button>";}
 function renderList(){var rows=shown;
  if($("inView").checked){var b=map.getBounds();rows=rows.filter(function(r){return r.p.ll&&b.contains(r.p.ll);});}
  rows=rows.slice().sort(sortRows);
@@ -385,6 +405,8 @@ function cardHtml(p){var v=p.v,s=p.s,h="";
  var place=[p.adm[0]&&"ต."+p.adm[0],p.adm[1]&&"อ."+p.adm[1],p.adm[2]&&"จ."+p.adm[2]].filter(Boolean).join(" ");
  h+='<p class="loc">'+esc(place||"ไม่ทราบที่ตั้ง")+(v.area_wa!=null?" · "+esc(areaTxt(v.area_wa)):"")+"</p>";
  h+='<div class="cbar">'+(p.ll?'<button id="cZoom">ดูบนแผนที่</button><a href="https://www.google.com/maps/search/?api=1&query='+p.ll[0]+","+p.ll[1]+'" target="_blank" rel="noopener noreferrer">Google Maps ↗</a>':'<span class="tag" style="margin:0">ไม่มีหมุด</span>')+"</div>";
+ if(p.im&&p.im.length)h+='<div class="csec"><h3>รูปแปลง ('+p.im.length+')</h3><div class="imgs">'+p.im.map(function(m,i){
+  return '<figure><button type="button" class="imgb" data-i="'+i+'" aria-label="ขยายรูปแปลง"><span class="ld">กำลังโหลดรูป…</span></button><figcaption>รูปแปลงจากงาน '+esc(m[1]||"ไม่ระบุ")+' ⚠️</figcaption></figure>';}).join("")+"</div></div>";
  h+='<div class="csec"><h3>ราคาที่บันทึก ('+p.o.length+" ครั้ง)</h3>"+(p.o.length?p.o.slice().reverse().map(obsHtml).join(""):'<p class="miss">ยังไม่มีรายการราคา</p>')+"</div>";
  D.G.forEach(function(g){var rows=[];g[1].forEach(function(k){if(v[k]==null)return;rows.push("<dt>"+esc((LB[k]||[k])[0])+"</dt><dd>"+fval(k,v[k])+stIcon(s[k])+"</dd>");});
   if(rows.length)h+='<div class="csec"><h3>'+esc(g[0])+"</h3>"+kv(rows)+"</div>";});
@@ -400,13 +422,26 @@ function openCard(id){var p=byId[id];if(!p)return;selId=id;
  P.forEach(function(x){if(x.mk)x.mk.setStyle({radius:x.id===id?11:7,weight:x.id===id?3:2,color:x.id===id?"#ffd400":"#fff"});});
  if(p.mk)p.mk.bringToFront();
  var z=$("cZoom");if(z)z.onclick=function(){history.back();setTab("map");map.setView(p.ll,Math.max(map.getZoom(),17));};
+ loadImgs(p);
  [].forEach.call($("rows").querySelectorAll(".row"),function(r){r.classList.toggle("sel",r.getAttribute("data-id")===id);});}
 $("cClose").onclick=function(){history.back();};
+
+/* ---------- รูปแปลง: ไฟล์ละรูป เข้ารหัส โหลดเมื่อเปิดบัตร (เก็บไว้ในหน่วยความจำระหว่างเปิดหน้า) ---------- */
+var IMGC={};
+function imgUrl(name){if(!IMGC[name])IMGC[name]=fetchDec("data/i/"+name+".bin").then(function(b){return URL.createObjectURL(new Blob([b],{type:"image/jpeg"}));}).catch(function(e){delete IMGC[name];throw e;});return IMGC[name];}
+function loadImgs(p){if(!p.im)return;
+ [].forEach.call($("cBody").querySelectorAll(".imgb"),function(b){var m=p.im[+b.getAttribute("data-i")];
+  imgUrl(m[0]).then(function(u){if(selId!==p.id)return;b.innerHTML='<img alt="รูปแปลง '+esc(p.id)+'" src="'+u+'">';b.onclick=function(){openViewer(u,p.id+" · งาน "+(m[1]||"ไม่ระบุ"));};})
+   .catch(function(e){console.error(e);b.innerHTML='<span class="ld">โหลดรูปไม่ได้ แตะเพื่อลองใหม่</span>';b.onclick=function(){b.innerHTML='<span class="ld">กำลังโหลดรูป…</span>';b.onclick=null;loadImgs(p);};});});}
+function openViewer(u,title){$("vImg").src=u;$("vTitle").textContent=title;$("vBox").classList.remove("big");$("viewer").hidden=false;pushSheet("v");}
+$("vImg").onclick=function(e){var bx=$("vBox"),r=this.getBoundingClientRect(),fx=(e.clientX-r.left)/r.width,fy=(e.clientY-r.top)/r.height;
+ bx.classList.toggle("big");if(bx.classList.contains("big")){bx.scrollLeft=Math.max(0,fx*bx.scrollWidth-bx.clientWidth/2);bx.scrollTop=Math.max(0,fy*bx.scrollHeight-bx.clientHeight/2);}};
+$("vClose").onclick=function(){history.back();};
 
 /* ---------- ปุ่มย้อนกลับของมือถือปิดแผ่นที่เปิดอยู่ ---------- */
 var depth=0;
 function pushSheet(k){depth++;history.pushState({s:k},"");}
-window.addEventListener("popstate",function(){if(depth>0){depth--;closeSheets();}});
+window.addEventListener("popstate",function(){if(depth>0){depth--;if(!$("viewer").hidden){$("viewer").hidden=true;$("vImg").removeAttribute("src");}else closeSheets();}});
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&depth>0)history.back();});
 
 /* ---------- แท็บ (มือถือ) ---------- */
